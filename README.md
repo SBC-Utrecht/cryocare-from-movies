@@ -7,7 +7,17 @@ Automatically processes data from a folder with raw tifs and mdocs to cryocare d
 
 ```condaactivate```
 
-Run this script in the following folder structure:
+To run (altenatively can make the script executable):
+
+```python path/to/script/tomo_prepper.py --help```
+
+Some info about parameters:
+- MotionCor2 will correct motion without local patches, its just a single xy translation per frame.
+- Some of the script options directly refer to aretomo parameters, check their docs for usage instructions!
+- cryocare relies on a parameter 'training-size' that randomly selects n tomograms to train the denoiser on. I have no idea what an appropriate setting is (even made a github issue in their repo about it: https://github.com/juglab/cryoCARE_pip/issues/50). I used a small subset of my tilt-series for training but someone else trained it on 100 tomograms with much longer training times. I had succes with 5 tomograms and running times were very feasible.
+- You need to provide a single GPU.
+
+Run this script in the following folder structure, where the project folder can have an arbitrary name but the folder 'raw' is hardcoded:
 
 ```
 project/
@@ -23,8 +33,6 @@ project/
 ```
 
 ```python path/to/script/tomo_prepper.py --project-dir path/to/project```
-
-(or make the script executable)
 
 This script will modify it with the following output:
 

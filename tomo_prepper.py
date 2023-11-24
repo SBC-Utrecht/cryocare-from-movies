@@ -218,12 +218,12 @@ class TiltSeries:
         subprocess.run(' '.join(args), shell=True)
         
         args_even = [ARETOMO_CMD, f'-InMrc {self.even_stack}', f'-OutMrc {self.tomo_even}', 
-                     f'-VolZ {vol_z}', '-OutBin 8', '-FlipVol 1', '-Wbp 1', 
+                     f'-VolZ {vol_z}', f'-OutBin {binning}', '-FlipVol 1', '-Wbp 1', 
                      f'-AlnFile {self.tilt_alignment}', f'-Gpu {gpu_id}']
         subprocess.run(' '.join(args_even), shell=True)
         
         args_odd = [ARETOMO_CMD, f'-InMrc {self.odd_stack}', f'-OutMrc {self.tomo_odd}', 
-                     f'-VolZ {vol_z}', '-OutBin 8', '-FlipVol 1', '-Wbp 1', 
+                     f'-VolZ {vol_z}', f'-OutBin {binning}', '-FlipVol 1', '-Wbp 1', 
                      f'-AlnFile {self.tilt_alignment}', f'-Gpu {gpu_id}']
         subprocess.run(' '.join(args_odd), shell=True)
         

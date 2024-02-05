@@ -204,7 +204,7 @@ class TiltSeries:
         create_tilt_file(self.tilt_angles, self.rawtlt_file)
         
     def reconstruction(self, full_path, even_path, odd_path, tilt_axis, 
-                       vol_z, align_z, binning, tiltcor, tiltcor_angle, gpu_id):
+                       vol_z, align_z, binning, tiltcor, tiltcor_angle, out_imod, gpu_id):
         self.tomo_full = full_path.joinpath(self.series_name + '.mrc')
         self.tilt_alignment = full_path.joinpath(self.series_name + '.st.aln')
         self.tomo_even = even_path.joinpath(self.series_name + '.mrc')
@@ -212,7 +212,7 @@ class TiltSeries:
         
         args = [ARETOMO_CMD, f'-InMrc {self.full_stack}', f'-AngFile {self.rawtlt_file}',
                 f'-OutMrc {self.tomo_full}', f'-VolZ {vol_z}', f'-AlignZ {align_z}', f'-OutBin {binning}', 
-                '-DarkTol 0.01', '-FlipVol 1', '-Wbp 1', 
+                '-DarkTol 0.01', '-FlipVol 1', '-Wbp 1', f'-OutImod {out_imod}',
                 f'-TiltCor {tiltcor} ' + (str(tiltcor_angle) if tiltcor_angle is not None else ''),
                 f'-Gpu {gpu_id}'] + ([f'-TiltAxis {tilt_axis}'] if tilt_axis is not None else [])
         subprocess.run(' '.join(args), shell=True)
@@ -265,14 +265,14 @@ class Project:
         for ts in self.tilt_series:
             ts.to_stacks(self.project_stacks, self.pixel_size)
             
-    def aretomo(self, tilt_axis, vol_z, align_z, binning, tiltcor, tiltcor_angle, gpu_id):
+    def aretomo(self, tilt_axis, vol_z, align_z, binning, tiltcor, tiltcor_angle, out_imod, gpu_id):
         self.project_tomograms.mkdir(exist_ok=True)
         self.tomos_full.mkdir(exist_ok=True)
         self.tomos_odd.mkdir(exist_ok=True)
         self.tomos_even.mkdir(exist_ok=True)
         for ts in self.tilt_series:
             ts.reconstruction(self.tomos_full, self.tomos_even, self.tomos_odd, tilt_axis, 
-                              vol_z, align_z, binning, tiltcor, tiltcor_angle, gpu_id)
+                              vol_z, align_z, binning, tiltcor, tiltcor_angle, out_imod, gpu_id)
             
     def cryocare(self, training_subset_size, cryocare_model_name, gpu_id):
         self.cryocare_folder.mkdir(exist_ok=True)
@@ -322,7 +322,7 @@ class Project:
         
             
     def run(self, gain_file, tilt_axis, vol_z, align_z, binning, tiltcor, tiltcor_angle, 
-            training_subset_size, cryocare_model_name, gpu_id):
+            out_imod, training_subset_size, cryocare_model_name, gpu_id):
         # run motioncor2
         self.motioncor2(gain_file, gpu_id)
         
@@ -330,7 +330,7 @@ class Project:
         self.create_stacks()        
         
         # run aretomo
-        self.aretomo(tilt_axis, vol_z, align_z, binning, tiltcor, tiltcor_angle, gpu_id)        
+        self.aretomo(tilt_axis, vol_z, align_z, binning, tiltcor, tiltcor_angle, out_imod, gpu_id)        
         
         # run cryocare
         self.cryocare(training_subset_size, cryocare_model_name, gpu_id)
@@ -359,6 +359,9 @@ if __name__ == '__main__':
                         help='tomogram thickness before binning (in voxels) used to optimize tilt alignment in aretomo')
     parser.add_argument('--aretomo-tiltcor', type=int, required=False, default=0,
                         help='tiltcor for aretomo, options include -1, 0, 1 (see aretomo manual)')
+    parser.add_argument('--aretomo-outimod', type=int, required=False, default=0,
+			help='outimod option for aretomo, 0 (default) does not produce any imod output, '
+   			     'other options are 1,2,3 (see aretomo manual)')
     parser.add_argument('--aretomo-tiltcor-angle', type=float, required=False,
                         help='angle for aretomo tiltcor (see aretomo manual)')
     parser.add_argument('--training-size', type=int, required=False, default=5,
@@ -385,5 +388,5 @@ if __name__ == '__main__':
     project = Project(project_path, args.pixel_size)
     project.run(gain_file, args.tilt_axis, args.aretomo_vol_z, args.aretomo_align_z,
                 args.tomogram_binning, args.aretomo_tiltcor, args.aretomo_tiltcor_angle,
-                args.training_size, args.cryocare_model_name, args.gpu_id)
+                args.aretomo_outimod, args.training_size, args.cryocare_model_name, args.gpu_id)
 	

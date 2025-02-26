@@ -291,7 +291,7 @@ class Project:
         predict_file = self.project_main.joinpath('predict_config.json')
         
         # select subset size indices
-        subset = np.random.choice(len(self.tilt_series), training_subset_size)
+        subset = np.random.choice(len(self.tilt_series), training_subset_size, replace=False)
         cryocare_train_data_config['path'] = str(self.cryocare_folder)
         cryocare_train_data_config['even'] = [str(self.tilt_series[i].tomo_even) for i in subset]
         cryocare_train_data_config['odd'] = [str(self.tilt_series[i].tomo_odd) for i in subset]

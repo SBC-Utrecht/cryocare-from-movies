@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 '''
 Before running:
-module load motioncor2 aretomo miniconda/cryocare
+module load aretomo3 miniconda/cryocare
 
 Run this script in the following folder structure:
 
@@ -28,27 +28,44 @@ project/
 ¦  +- tomo200528_110_0.0_May30_22.19.28.tif
 ¦  +- tomo200528_110_3.0_May30_22.20.54.tif
 ¦  +- etc...
-+- stacks/
-¦  +- tomo200528_100.st
-¦  +- tomo200528_100_odd.st
-¦  +- tomo200528_100_even.st
-¦  +- tomo200528_100.rawtlt
-¦  +- tomo200528_110.st
-¦  +- tomo200528_110_odd.st
-¦  +- tomo200528_110_even.st
-¦  +- tomo200528_110.rawtlt
++- AreTomo3Output/
+¦  +- AreTomo3_Session.json
+¦  +- MdocDone.txt
+¦  +- TiltSeries_Metric.csv
+¦  +- tomo200528_100.mrc.aln
+¦  +- tomo200528_100.mrc_TLT.txt
+¦  +- tomo200528_100.mrc_Log
+¦  +- tomo200528_100.mrc_CTF_Imod.txt
+¦  +- tomo200528_100.mrc_CTF.mrc
+¦  +- tomo200528_100.mrc_CTF.txt
+¦  +- tomo200528_100.mrc_EVN.mrc
+¦  +- tomo200528_100.mrc_EVN_Vol.mrc
+¦  +- tomo200528_100.mrc_ODD.mrc
+¦  +- tomo200528_100.mrc_ODD_Vol.mrc
+¦  +- tomo200528_100.mrc.mrc
+¦  +- tomo200528_100.mrc_Vol.mrc
+¦  +- ...
+¦  +- tomo200528_110.mrc.aln
+¦  +- tomo200528_110.mrc_TLT.txt
+¦  +- tomo200528_110.mrc_Log
+¦  +- tomo200528_110.mrc_CTF_Imod.txt
+¦  +- tomo200528_110.mrc_CTF.mrc
+¦  +- tomo200528_110.mrc_CTF.txt
+¦  +- tomo200528_110.mrc_EVN.mrc
+¦  +- tomo200528_110.mrc_EVN_Vol.mrc
+¦  +- tomo200528_110.mrc_ODD.mrc
+¦  +- tomo200528_110.mrc_ODD_Vol.mrc
+¦  +- tomo200528_110.mrc.mrc
+¦  +- tomo200528_110.mrc_Vol.mrc
 +- tomograms/
-¦  +- full/
-¦  ¦  +- tomo200528_100.mrc
-¦  ¦  +- tomo200528_100.aln
-¦  ¦  +- tomo200528_110.mrc
-¦  ¦  +- tomo200528_110.aln
 ¦  +- even/
-¦  ¦  +- tomo200528_100.mrc
-¦  ¦  +- tomo200528_110.mrc
+¦  ¦  +- tomo200528_100.mrc (symlink to tomo200528_100.mrc_EVN_Vol.mrc)
+¦  ¦  +- ...
+¦  ¦  +- tomo200528_110.mrc (symlink to tomo200528_110.mrc_EVN_Vol.mrc)
 ¦  +- odd/
-¦  ¦  +- tomo200528_100.mrc
-¦  ¦  +- tomo200528_110.mrc
+¦  ¦  +- tomo200528_100.mrc (symlink to tomo200528_100.mrc_ODD_Vol.mrc)
+¦  ¦  +- ...
+¦  ¦  +- tomo200528_110.mrc (symlink to tomo200528_110.mrc_ODD_Vol.mrc)
 ¦  +- denoised/
 ¦  ¦  +- tomo200528_100.mrc
 ¦  ¦  +- tomo200528_110.mrc

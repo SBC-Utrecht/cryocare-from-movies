@@ -80,9 +80,7 @@ import mrcfile
 import numpy as np
 from operator import itemgetter
 
-
-MOTIONCOR2_CMD = 'motioncor2'
-ARETOMO_CMD = 'aretomo'
+ARETOMO_CMD = 'aretomo3'
 
 cryocare_train_data_config = {
   "even": [],
@@ -183,55 +181,46 @@ class TiltSeries:
         self.tomo_odd = None
         self.tilt_alignment = None
             
-    def motion_correction(self, gain_file, gpu_id):
-        for subframe in self.subframes:
-            if subframe.suffix == '.eer':
-                subframe = subframe.with_suffix('.tif')
-            if not subframe.exists():
-                print(f'tif does not exist {subframe}, cannot continue')
-                sys.exit(0)
-            
-            raw_dir, frame_id = subframe.parent, subframe.stem
-            frame_sum = raw_dir.joinpath(frame_id + '_motcor.mrc')
-            frame_sum_even = raw_dir.joinpath(frame_id + '_motcor_EVN.mrc')
-            frame_sum_odd = raw_dir.joinpath(frame_id + '_motcor_ODD.mrc')
-            
-            args = [MOTIONCOR2_CMD, f'-InTiff {subframe}', f'-OutMrc {frame_sum}', f'-Gpu {gpu_id}', 
-                    '-SplitSum 1'] + ([f'-Gain {gain_file} '] if gain_file is not None else [])
-            subprocess.run(' '.join(args), shell=True)
-                
-            self.corrected_frames.append(frame_sum)
-            self.corrected_frames_even.append(frame_sum_even)
-            self.corrected_frames_odd.append(frame_sum_odd)
-            
-    def to_stacks(self, stacks_path, pixel_size):
-        # order stacks by tilt angle first
-        l = sorted(zip(self.tilt_angles, self.corrected_frames, 
-                       self.corrected_frames_even, self.corrected_frames_odd), key=itemgetter(0))
-        self.tilt_angles, self.corrected_frames, self.corrected_frames_even, self.corrected_frames_odd = zip(*l)
-        
-        # then write everything
-        self.full_stack = stacks_path.joinpath(self.series_name + '.st')
-        self.even_stack = stacks_path.joinpath(self.series_name + '_even.st')
-        self.odd_stack = stacks_path.joinpath(self.series_name + '_odd.st')
-        self.rawtlt_file = stacks_path.joinpath(self.series_name + '.rawtlt')
-        create_stack(self.corrected_frames, self.full_stack, pixel_size)
-        create_stack(self.corrected_frames_even, self.even_stack, pixel_size)
-        create_stack(self.corrected_frames_odd, self.odd_stack, pixel_size)
-        create_tilt_file(self.tilt_angles, self.rawtlt_file)
-        
     def reconstruction(self, full_path, even_path, odd_path, tilt_axis, 
                        vol_z, align_z, binning, tiltcor, tiltcor_angle, out_imod, gpu_id):
+        # Input to required:
+        # pixel_size
+        # kV
+        # cs
+        # fm_dose
+        # (optional) defect_file
+        # tilt_axis, TODO: see if header default is sane
+        # align_z
+        # vol_z
+        # binning
+        # out_imod (default 0)
+        # Gpu_id(s)
+        # Gain ref
         self.tomo_full = full_path.joinpath(self.series_name + '.mrc')
         self.tilt_alignment = full_path.joinpath(self.series_name + '.st.aln')
         self.tomo_even = even_path.joinpath(self.series_name + '.mrc')
         self.tomo_odd = odd_path.joinpath(self.series_name + '.mrc')
-        
-        args = [ARETOMO_CMD, f'-InMrc {self.full_stack}', f'-AngFile {self.rawtlt_file}',
-                f'-OutMrc {self.tomo_full}', f'-VolZ {vol_z}', f'-AlignZ {align_z}', f'-OutBin {binning}', 
-                '-DarkTol 0.01', '-FlipVol 1', '-Wbp 1', f'-OutImod {out_imod}',
-                f'-TiltCor {tiltcor} ' + (str(tiltcor_angle) if tiltcor_angle is not None else ''),
-                f'-Gpu {gpu_id}'] + ([f'-TiltAxis {tilt_axis}'] if tilt_axis is not None else [])
+        # TODO: make some/all of these inputs user-based
+        args = [ARETOMO_CMD,
+                '-InPrefix raw/', #look in raw directory
+                '-InSuffix .mdoc', # look for .mdoc files
+                '-OutDir AreTomo3Output', # output dir
+                f'-PixSize {pix_size}', # pixel size of input
+                f'-kV {kV}', # voltage
+                f'-Cs {cs}', # Spherical Aberration
+                f'-FmDose {fm_dose}', #Dose per frame
+                '-Cmd 0', # do full reconstructions from tilts
+                f'-DefectFile {defect_file}' if defect_file is not None else '',
+                '-InFmMotion 1', # account for inframe motion
+                f'-TiltAxis {tilt_axis}', #Tilt axis TODO: see if header default is sane
+                f'-AlignZ {align_z}', # Alignment z-shape
+                f'-VolZ {vol_z}', # reconstructed volume z-height
+                f'-AtBin {binnig}' # reconstruction binning
+                '-FlipVol 1', # make output vol xyz instead of xzy
+                '-Wbp 1', # enable weighted back projection
+                '-DarkTol 0.01', # make dark tolerance less restrictive
+                '-OutImod {out_imod}', # see aretomo3 --help
+                ]
         subprocess.run(' '.join(args), shell=True)
         
         args_even = [ARETOMO_CMD, f'-InMrc {self.even_stack}', f'-OutMrc {self.tomo_even}', 
@@ -263,30 +252,19 @@ class Project:
         self.tilt_series = [TiltSeries(x) for x in self.mdocs]
         
         # other dirs
-        self.project_stacks = project_path.joinpath('stacks')
+        self.project_AreTomo3 = project_path.joinpath('AreTomo3Output')
         self.project_tomograms = project_path.joinpath('tomograms')
-        self.tomos_full = self.project_tomograms.joinpath('full')
         self.tomos_even = self.project_tomograms.joinpath('even')
         self.tomos_odd = self.project_tomograms.joinpath('odd')
         self.tomos_denoised = self.project_tomograms.joinpath('denoised')
         self.cryocare_folder = self.project_tomograms.joinpath('cryocare_training')
     
-    def motioncor2(self, gain_file, gpu_id):
-        for ts in self.tilt_series:
-            print(f'motioncor2 for {ts.series_name}')
-            ts.motion_correction(gain_file, gpu_id)
-            
-    def create_stacks(self):
-        print('------------- creating stacks ----------------')
-        self.project_stacks.mkdir(exist_ok=True)
-        for ts in self.tilt_series:
-            ts.to_stacks(self.project_stacks, self.pixel_size)
-            
     def aretomo(self, tilt_axis, vol_z, align_z, binning, tiltcor, tiltcor_angle, out_imod, gpu_id):
+        self.project_AreTomo3.mkdir(exist_ok=True)
         self.project_tomograms.mkdir(exist_ok=True)
-        self.tomos_full.mkdir(exist_ok=True)
         self.tomos_odd.mkdir(exist_ok=True)
         self.tomos_even.mkdir(exist_ok=True)
+        # TODO: this can be run on all tilts at the same time
         for ts in self.tilt_series:
             ts.reconstruction(self.tomos_full, self.tomos_even, self.tomos_odd, tilt_axis, 
                               vol_z, align_z, binning, tiltcor, tiltcor_angle, out_imod, gpu_id)
@@ -340,15 +318,11 @@ class Project:
             
     def run(self, gain_file, tilt_axis, vol_z, align_z, binning, tiltcor, tiltcor_angle, 
             out_imod, training_subset_size, cryocare_model_name, gpu_id):
-        # run motioncor2
-        self.motioncor2(gain_file, gpu_id)
-        
-        # combine to stacks
-        self.create_stacks()        
-        
         # run aretomo
         self.aretomo(tilt_axis, vol_z, align_z, binning, tiltcor, tiltcor_angle, out_imod, gpu_id)        
-        
+        # create symlinks
+        self.create_symlinks()
+
         # run cryocare
         self.cryocare(training_subset_size, cryocare_model_name, gpu_id)
 

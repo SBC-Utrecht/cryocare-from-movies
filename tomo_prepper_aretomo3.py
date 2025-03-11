@@ -139,7 +139,7 @@ class Project:
         self.tomos_even = self.project_tomograms.joinpath('even')
         self.tomos_odd = self.project_tomograms.joinpath('odd')
         self.tomos_denoised = self.project_tomograms.joinpath('denoised')
-        self.cryocare_folder = self.project_tomograms.joinpath('cryocare_training')
+        self.cryocare_folder = self.project_tomograms.joinpath('cryocare_model')
     
     def aretomo(self, pixel_size, kV, cs, fm_dose, gpu_ids, gain_ref, tilt_axis, align_z, vol_z, binning, out_imod=0,
                 defect_file=None):

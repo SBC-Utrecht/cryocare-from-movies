@@ -124,65 +124,31 @@ cryocare_predict_config = {
 }
 
 
-def parse_mdoc(mdoc_file):
-    tilt_series_name = None
-    subframe_list = []
-    tilt_angle_list = []    
-    with open(mdoc_file, 'r') as infile:
-        lines = infile.readlines()
-        for x in lines:
-            line = x.strip()
-            if line.startswith('ImageFile'):
-                tilt_series_name = line.split('=')[1].strip()
-            elif line.startswith('SubFramePath'):
-                subframe_list.append(line.split('=')[1].strip())
-            elif line.startswith('TiltAngle'):
-                tilt_angle_list.append(float(line.split('=')[1].strip()))
-    return tilt_series_name, subframe_list, tilt_angle_list
-
-
-def create_stack(tilt_images, outname, pixel_size):
-    with mrcfile.new(outname, overwrite=True) as newstack:
-        images = [mrcfile.read(x) for x in tilt_images]
-        newstack.set_data(np.stack(images, axis=0))
-        newstack.voxel_size = pixel_size
-
-
-def create_tilt_file(tilt_angles, outname):
-    with open(outname, 'w') as f:
-        f.writelines([str(x) + '\n' for x in tilt_angles])
+class Project:
+    def __init__(self, project_path, pixel_size):
+        self.project_main = project_path
+        self.project_raw = project_path.joinpath('raw')
+        self.pixel_size = pixel_size
+        if not self.project_raw.exists():
+            print('no folder with raw data in project')
+            sys.exit(0)
+        # list mdoc files
+        self.mdocs = [x for x in self.project_raw.iterdir() if x.is_file() and x.suffix == '.mdoc']
         
-        
-def normalise(mrc_path):
-    with mrcfile.open(mrc_path, mode='r+') as tomo:
-        tomo.data[:] = tomo.data / tomo.data.std()
-        tomo.update_header_from_data()
-        tomo.update_header_stats()
-
-
-class TiltSeries:
-    def __init__(self, mdoc_path):
-        self.mdoc_path = mdoc_path
-        self.series_name, subframes, self.tilt_angles = parse_mdoc(self.mdoc_path)
-        self.series_name = self.series_name.strip('.mrc')
-        self.subframes = []
-        for subframe in subframes:
-            # make pure windows path to find tif or eer file name
-            self.subframes.append(self.mdoc_path.parent.joinpath(pathlib.PureWindowsPath(subframe).name))
-        self.corrected_frames = []
-        self.corrected_frames_even = []
-        self.corrected_frames_odd = []
-        self.full_stack = None
-        self.even_stack = None
-        self.odd_stack = None
-        self.rawtlt_file = None
-        self.tomo_full = None
-        self.tomo_even = None
-        self.tomo_odd = None
-        self.tilt_alignment = None
-            
-    def reconstruction(self, full_path, even_path, odd_path, tilt_axis, 
-                       vol_z, align_z, binning, tiltcor, tiltcor_angle, out_imod, gpu_id):
+        # other dirs
+        self.project_AreTomo3 = project_path.joinpath('AreTomo3Output')
+        self.project_tomograms = project_path.joinpath('tomograms')
+        self.tomos_even = self.project_tomograms.joinpath('even')
+        self.tomos_odd = self.project_tomograms.joinpath('odd')
+        self.tomos_denoised = self.project_tomograms.joinpath('denoised')
+        self.cryocare_folder = self.project_tomograms.joinpath('cryocare_training')
+    
+    def aretomo(self, tilt_axis, vol_z, align_z, binning, tiltcor, tiltcor_angle, out_imod, gpu_id):
+        self.project_AreTomo3.mkdir(exist_ok=True)
+        self.project_tomograms.mkdir(exist_ok=True)
+        self.tomos_odd.mkdir(exist_ok=True)
+        self.tomos_even.mkdir(exist_ok=True)
+        # TODO: this can be run on all tilts at the same time
         # Input to required:
         # pixel_size
         # kV
@@ -196,10 +162,6 @@ class TiltSeries:
         # out_imod (default 0)
         # Gpu_id(s)
         # Gain ref
-        self.tomo_full = full_path.joinpath(self.series_name + '.mrc')
-        self.tilt_alignment = full_path.joinpath(self.series_name + '.st.aln')
-        self.tomo_even = even_path.joinpath(self.series_name + '.mrc')
-        self.tomo_odd = odd_path.joinpath(self.series_name + '.mrc')
         # TODO: make some/all of these inputs user-based
         args = [ARETOMO_CMD,
                 '-InPrefix raw/', #look in raw directory
@@ -218,78 +180,38 @@ class TiltSeries:
                 f'-AtBin {binnig}' # reconstruction binning
                 '-FlipVol 1', # make output vol xyz instead of xzy
                 '-Wbp 1', # enable weighted back projection
-                '-DarkTol 0.01', # make dark tolerance less restrictive
+                #'-DarkTol 0.01', # make dark tolerance less restrictive
                 '-OutImod {out_imod}', # see aretomo3 --help
                 ]
         subprocess.run(' '.join(args), shell=True)
-        
-        args_even = [ARETOMO_CMD, f'-InMrc {self.even_stack}', f'-OutMrc {self.tomo_even}', 
-                     f'-VolZ {vol_z}', f'-OutBin {binning}', '-FlipVol 1', '-Wbp 1', 
-                     f'-AlnFile {self.tilt_alignment}', f'-Gpu {gpu_id}']
-        subprocess.run(' '.join(args_even), shell=True)
-        
-        args_odd = [ARETOMO_CMD, f'-InMrc {self.odd_stack}', f'-OutMrc {self.tomo_odd}', 
-                     f'-VolZ {vol_z}', f'-OutBin {binning}', '-FlipVol 1', '-Wbp 1', 
-                     f'-AlnFile {self.tilt_alignment}', f'-Gpu {gpu_id}']
-        subprocess.run(' '.join(args_odd), shell=True)
-        
-        # normalise tomograms after aretomo to std=1
-        normalise(self.tomo_full)
-        normalise(self.tomo_even)
-        normalise(self.tomo_odd)
 
-
-class Project:
-    def __init__(self, project_path, pixel_size):
-        self.project_main = project_path
-        self.project_raw = project_path.joinpath('raw')
-        self.pixel_size = pixel_size
-        if not self.project_raw.exists():
-            print('no folder with raw data in project')
-            sys.exit(0)
-        # list mdoc files
-        self.mdocs = [x for x in self.project_raw.iterdir() if x.is_file() and x.suffix == '.mdoc']
-        self.tilt_series = [TiltSeries(x) for x in self.mdocs]
-        
-        # other dirs
-        self.project_AreTomo3 = project_path.joinpath('AreTomo3Output')
-        self.project_tomograms = project_path.joinpath('tomograms')
-        self.tomos_even = self.project_tomograms.joinpath('even')
-        self.tomos_odd = self.project_tomograms.joinpath('odd')
-        self.tomos_denoised = self.project_tomograms.joinpath('denoised')
-        self.cryocare_folder = self.project_tomograms.joinpath('cryocare_training')
-    
-    def aretomo(self, tilt_axis, vol_z, align_z, binning, tiltcor, tiltcor_angle, out_imod, gpu_id):
-        self.project_AreTomo3.mkdir(exist_ok=True)
-        self.project_tomograms.mkdir(exist_ok=True)
-        self.tomos_odd.mkdir(exist_ok=True)
-        self.tomos_even.mkdir(exist_ok=True)
-        # TODO: this can be run on all tilts at the same time
-        for ts in self.tilt_series:
-            ts.reconstruction(self.tomos_full, self.tomos_even, self.tomos_odd, tilt_axis, 
-                              vol_z, align_z, binning, tiltcor, tiltcor_angle, out_imod, gpu_id)
+    def create_symlinks(self): 
+        # Symlink the odd and even tomograms to the correct folder
+        args = ['ln', '-rs', 'AreTomo3Output/*EVN_Vol.mrc', 'tomograms/even']
+        subprocess.run(' '.join(args), shell=True)
+        args = ['ln', '-rs', 'AreTomo3Output/*ODD_Vol.mrc', 'tomograms/odd']
+        subprocess.run(' '.join(args), shell=True)
+        # rename all the files
+        args = ['rename', r's/_(EVN|ODD)_Vol.mrc//', 'tomograms/*/*']
+        subprocess.run(' '.join(args), shell=True)
+ 
             
     def cryocare(self, training_subset_size, cryocare_model_name, gpu_id):
         self.cryocare_folder.mkdir(exist_ok=True)
         self.tomos_denoised.mkdir(exist_ok=True)
-        
-        # move all XZ projections from AreTomo, otherwise cryocare tries to predict on them
-        even_proj = self.tomos_even.joinpath('proj')
-        odd_proj = self.tomos_odd.joinpath('proj')
-        even_proj.mkdir(exist_ok=True)
-        odd_proj.mkdir(exist_ok=True)
-        subprocess.run(f'mv {str(self.tomos_even)}/*projX* {str(even_proj)}', shell=True)
-        subprocess.run(f'mv {str(self.tomos_odd)}/*projX* {str(odd_proj)}', shell=True)
- 
         train_data_file = self.project_main.joinpath('train_data_config.json')
         train_file = self.project_main.joinpath('train_config.json')
         predict_file = self.project_main.joinpath('predict_config.json')
         
         # select subset size indices
-        subset = np.random.choice(len(self.tilt_series), training_subset_size, replace=False)
+        subset = np.random.choice(len(self.mdocs), training_subset_size, replace=False)
         cryocare_train_data_config['path'] = str(self.cryocare_folder)
-        cryocare_train_data_config['even'] = [str(self.tilt_series[i].tomo_even) for i in subset]
-        cryocare_train_data_config['odd'] = [str(self.tilt_series[i].tomo_odd) for i in subset]
+        # use the fact that the stem of tomoXXX.mrc.mdoc is tomoXXX.mrc
+        tomos_even = [str(self.tomos_even / self.mdocs[i].stem) for i in subset]
+        tomos_odd = [str(self.tomos_odd / (self.mdocs[i].stem) for i in subset]
+
+        cryocare_train_data_config['even'] = tomos_even
+        cryocare_train_data_config['odd'] = tomos_odd
         with open(train_data_file, 'w') as js_file:
             js_file.write(json.dumps(cryocare_train_data_config, indent=2))
             

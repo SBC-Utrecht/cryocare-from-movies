@@ -272,8 +272,6 @@ if __name__ == '__main__':
                         help='Per frame dose in e/A2.')
     parser.add_argument('--tilt-axis', type=float, required=False,
                         help='tilt axis value for aretomo')
-    parser.add_argument('--kV', type=float, required=False, default=300,
-                        help='High tension in kV for dose weighting, default 300')
 
 
     # both pixel size and tilt-axis can be read from the mdoc file

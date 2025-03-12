@@ -115,7 +115,7 @@ cryocare_predict_config = {
   "path": None,
   "even": None,
   "odd": None,
-  "n_tiles": [2,4,2],
+  "n_tiles": [1,1,1],
   "output": None,
   "overwrite": "True",
   "gpu_id": None
@@ -319,6 +319,10 @@ if __name__ == '__main__':
         defect_file = None
     
     project = Project(project_path, args.pixel_size)
+    if args.training_size > len(project.mdocs):
+        print(f"Training size of {args.training_size} is bigger than the number of found mdocs: {len(project.mdocs)}")
+        sys.exit(0)
+
     project.run(gain_file, defect_file, args.pixel_size, args.kV, args.cs, args.fm_dose, args.tilt_axis,
                 args.aretomo_vol_z, args.aretomo_align_z, args.tomogram_binning, args.aretomo_outimod,
                 args.training_size, args.cryocare_model_name, args.gpu_id)

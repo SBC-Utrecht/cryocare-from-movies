@@ -169,7 +169,7 @@ class Project:
                 f'-Cs {cs}', # Spherical Aberration
                 f'-FmDose {fm_dose}', #Dose per frame
                 '-Cmd 0', # do full reconstructions from tilts
-                f'-Gpu {' '.join(str(i) for i in gpu_ids)}',
+                f'-Gpu {" ".join(str(i) for i in gpu_ids)}',
                 f'-DefectFile {defect_file}' if defect_file is not None else '',
                 f'-Gain {gain_ref}'
                 '-InFmMotion 1', # account for inframe motion

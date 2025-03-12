@@ -169,7 +169,7 @@ class Project:
                 f'-Cs {cs}', # Spherical Aberration
                 f'-FmDose {fm_dose}', #Dose per frame
                 '-Cmd 0', # do full reconstructions from tilts
-                f'-Gpu {gpu_ids}',
+                f'-Gpu {' '.join(str(i) for i in gpu_ids)}',
                 f'-DefectFile {defect_file}' if defect_file is not None else '',
                 f'-Gain {gain_ref}'
                 '-InFmMotion 1', # account for inframe motion
@@ -229,7 +229,7 @@ class Project:
         cryocare_predict_config['even'] = str(self.tomos_even)
         cryocare_predict_config['odd'] = str(self.tomos_odd)
         cryocare_predict_config['output'] = str(self.tomos_denoised)
-        cryocare_predict_config['gpu_id'] = gpu_id
+        cryocare_predict_config['gpu_id'] = gpu_id[0] #cryocare 0.3.0 does not handle multi-gpu predictions (yet)
         with open(predict_file, 'w') as js_file:
             js_file.write(json.dumps(cryocare_predict_config, indent=2))
             
@@ -293,8 +293,8 @@ if __name__ == '__main__':
                         help='number of tomograms to pass to cryocare for training')
     parser.add_argument('--cryocare-model-name', type=str, required=True,
                         help='give a name to your cryocare model, for example arctica_er_microsomes or krios_lamellae_yeast')
-    parser.add_argument('--gpu-id', type=int, required=False, default=0,
-                        help='specify the gpu index to run on')
+    parser.add_argument('--gpu-id', type=int, required=False, default=[0], nargs='+',
+                        help='specify the gpu index to run on, you can specify more than one with a space in between')
     args = parser.parse_args()
     
     project_path = pathlib.Path(args.project_dir)

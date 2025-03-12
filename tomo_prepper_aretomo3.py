@@ -191,7 +191,9 @@ class Project:
         args = ['ln', '-rs', 'AreTomo3Output/*ODD_Vol.mrc', 'tomograms/odd']
         subprocess.run(' '.join(args), shell=True)
         # rename all the files
-        args = ['rename', r's/_(EVN|ODD)_Vol.mrc//', 'tomograms/*/*']
+        args = ['rename', 'mrc_EVN_Vol.mrc', 'mrc' 'tomograms/even/*']
+        subprocess.run(' '.join(args), shell=True)
+        args = ['rename', 'mrc_ODD_Vol.mrc', 'mrc' 'tomograms/odd/*']
         subprocess.run(' '.join(args), shell=True)
  
             

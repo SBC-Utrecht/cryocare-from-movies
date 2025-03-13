@@ -141,8 +141,8 @@ class Project:
         self.tomos_denoised = self.project_tomograms.joinpath('denoised')
         self.cryocare_folder = self.project_tomograms.joinpath('cryocare_model')
     
-    def aretomo(self, pixel_size, kV, cs, fm_dose, gpu_ids, gain_ref, tilt_axis, align_z, vol_z, binning, out_imod=0,
-                defect_file=None):
+    def aretomo(self, pixel_size, kV, cs, fm_dose, gpu_ids, gain_ref, mc_patch,
+                tilt_axis, align_z, vol_z, binning, out_imod=0, defect_file=None):
         self.project_AreTomo3.mkdir(exist_ok=True)
         self.project_tomograms.mkdir(exist_ok=True)
         self.tomos_odd.mkdir(exist_ok=True)
@@ -154,6 +154,7 @@ class Project:
         # fm_dose
         # gpu id(s)
         # Gain ref
+        # McPatch
         # tilt_axis, TODO: see if header default is sane
         # align_z
         # vol_z
@@ -171,7 +172,8 @@ class Project:
                 '-Cmd 0', # do full reconstructions from tilts
                 f'-Gpu {" ".join(str(i) for i in gpu_ids)}',
                 f'-DefectFile {defect_file}' if defect_file is not None else '',
-                f'-Gain {gain_ref}'
+                f'-Gain {gain_ref}',
+                f'-McPatch {" ".join(str(i) for i in mc_patch)}',
                 '-InFmMotion 1', # account for inframe motion
                 f'-TiltAxis {tilt_axis}', #Tilt axis TODO: see if header default is sane
                 f'-AlignZ {align_z}', # Alignment z-shape
@@ -239,11 +241,12 @@ class Project:
         subprocess.run(f'cryoCARE_predict.py --conf {predict_file}', shell=True)
         
             
-    def run(self, gain_file, defect_file, pixel_size, kV, cs, fm_dose, tilt_axis, vol_z, align_z, binning, 
-            out_imod, training_subset_size, cryocare_model_name, gpu_id):
+    def run(self, gain_file, defect_file, pixel_size, kV, cs, fm_dose, tilt_axis, vol_z,
+            align_z, binning, out_imod, mc_patch, training_subset_size,
+            cryocare_model_name, gpu_id):
         # run aretomo
-        self.aretomo(pixel_size, kV, cs, fm_dose, gpu_id, gain_file, tilt_axis, align_z, vol_z,
-                     binning, out_imod, defect_file)        
+        self.aretomo(pixel_size, kV, cs, fm_dose, gpu_id, gain_file, mc_patch, tilt_axis,
+                     align_z, vol_z, binning, out_imod, defect_file)        
         # create symlinks
         self.create_symlinks()
 
@@ -264,13 +267,13 @@ if __name__ == '__main__':
                         help='(Optional) Defect file that is given to AreTomo3')
     parser.add_argument('--pixel-size', type=float, required=True,
                         help='specify the pixel size so mrcs can be annotated correctly')
-    parser.add_argument('--kV', type=float, required=False, default=300,
-                        help='High tension in kV for dose weighting, default 300')
+    parser.add_argument('--kV', type=float, required=True,
+                        help='High tension in kV for dose weighting')
     parser.add_argument('--cs', type=float, required=True,
                         help='Spherical aberration in mm for CTF estimation')
     parser.add_argument('--fm-dose', type=float, required=True,
                         help='Per frame dose in e/A2.')
-    parser.add_argument('--tilt-axis', type=float, required=False,
+    parser.add_argument('--tilt-axis', type=float, required=True,
                         help='tilt axis value for aretomo')
 
 
@@ -289,6 +292,9 @@ if __name__ == '__main__':
    			     'other options are 1,2,3 (see aretomo manual)')
     parser.add_argument('--aretomo-tiltcor-angle', type=float, required=False,
                         help='angle for aretomo tiltcor (see aretomo manual)')
+    parser.add_argument('--aretomo-mcpatch', type=int, required=False, nargs=2,
+                        default=[5 ,5],
+                        help='McPatch for aretomo (see aretomo manual), default 5 5')
     parser.add_argument('--training-size', type=int, required=False, default=5,
                         help='number of tomograms to pass to cryocare for training')
     parser.add_argument('--cryocare-model-name', type=str, required=True,
@@ -323,7 +329,8 @@ if __name__ == '__main__':
         print(f"Training size of {args.training_size} is bigger than the number of found mdocs: {len(project.mdocs)}")
         sys.exit(0)
 
-    project.run(gain_file, defect_file, args.pixel_size, args.kV, args.cs, args.fm_dose, args.tilt_axis,
-                args.aretomo_vol_z, args.aretomo_align_z, args.tomogram_binning, args.aretomo_outimod,
-                args.training_size, args.cryocare_model_name, args.gpu_id)
-	
+    project.run(gain_file, defect_file, args.pixel_size, args.kV, args.cs, 
+                args.fm_dose, args.tilt_axis, args.aretomo_vol_z,
+                args.aretomo_align_z, args.tomogram_binning, args.aretomo_outimod,
+                args.aretomo_mcpatch, args.training_size,
+                args.cryocare_model_name, args.gpu_id)

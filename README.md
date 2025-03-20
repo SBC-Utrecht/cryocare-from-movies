@@ -34,7 +34,7 @@ project/
 ¦  +- etc...
 ```
 
-```python path/to/script/tomo_prepper.py --project-dir path/to/project```
+```python path/to/script/tomo_prepper_aretomo3.py --project-dir path/to/project```
 
 This script will modify it with the following output:
 ```

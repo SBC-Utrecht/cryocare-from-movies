@@ -142,7 +142,7 @@ class Project:
         self.cryocare_folder = self.project_tomograms.joinpath('cryocare_model')
     
     def aretomo(self, pixel_size, kV, cs, fm_dose, gpu_ids, gain_ref, mc_patch,
-                tilt_axis, align_z, vol_z, binning, out_imod=0, defect_file=None):
+                tilt_axis, vol_z, binning, out_imod=0, defect_file=None, align_z=None):
         self.project_AreTomo3.mkdir(exist_ok=True)
         self.project_tomograms.mkdir(exist_ok=True)
         self.tomos_odd.mkdir(exist_ok=True)
@@ -155,7 +155,7 @@ class Project:
         # gpu id(s)
         # Gain ref
         # McPatch
-        # tilt_axis, TODO: see if header default is sane
+        # tilt_axis
         # align_z
         # vol_z
         # binning
@@ -175,8 +175,8 @@ class Project:
                 f'-Gain {gain_ref}',
                 f'-McPatch {" ".join(str(i) for i in mc_patch)}',
                 '-InFmMotion 1', # account for inframe motion
-                f'-TiltAxis {tilt_axis}', #Tilt axis TODO: see if header default is sane
-                f'-AlignZ {align_z}', # Alignment z-shape
+                f'-TiltAxis {tilt_axis}', #Tilt axis 
+                f'-AlignZ {align_z}' if align_z is not None else '', # Alignment z-shape
                 f'-VolZ {vol_z}', # reconstructed volume z-height
                 f'-AtBin {binning}', # reconstruction binning
                 '-FlipVol 1', # make output vol xyz instead of xzy
@@ -246,7 +246,7 @@ class Project:
             cryocare_model_name, gpu_id):
         # run aretomo
         self.aretomo(pixel_size, kV, cs, fm_dose, gpu_id, gain_file, mc_patch, tilt_axis,
-                     align_z, vol_z, binning, out_imod, defect_file)        
+                     vol_z, binning, out_imod, defect_file, align_z)        
         # create symlinks
         self.create_symlinks()
 
@@ -283,7 +283,7 @@ if __name__ == '__main__':
                         help='tomogram binning')
     parser.add_argument('--aretomo-vol-z', type=int, required=True,
                         help='tomogram reconstruction thickness before binning (in voxels)')
-    parser.add_argument('--aretomo-align-z', type=int, required=True,
+    parser.add_argument('--aretomo-align-z', type=int, required=False,
                         help='tomogram thickness before binning (in voxels) used to optimize tilt alignment in aretomo')
     parser.add_argument('--aretomo-tiltcor', type=int, required=False, default=0,
                         help='tiltcor for aretomo, options include -1, 0, 1 (see aretomo manual)')

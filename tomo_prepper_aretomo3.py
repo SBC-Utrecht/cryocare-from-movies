@@ -182,7 +182,7 @@ class Project:
                 '-FlipVol 1', # make output vol xyz instead of xzy
                 '-Wbp 1', # enable weighted back projection
                 #'-DarkTol 0.01', # make dark tolerance less restrictive
-                '-OutImod {out_imod}', # see aretomo3 --help
+                f'-OutImod {out_imod}', # see aretomo3 --help
                 ]
         subprocess.run(' '.join(args), shell=True)
 
